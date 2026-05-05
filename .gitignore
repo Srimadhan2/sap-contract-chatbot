@@ -7,8 +7,8 @@ ENV/
 env.bak/
 venv.bak/
 
-# Streamlit
-.streamlit/
+# Streamlit secrets (keep config.toml tracked)
+.streamlit/secrets.toml
 
 # Vector database cache
 faiss_index/
