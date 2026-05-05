@@ -1,0 +1,527 @@
+/*
+ * SAP Contract Intelligence Assistant — Premium Dark Theme
+ *
+ * Features:
+ *   - Deep dark gradient background
+ *   - Animated floating gradient orbs
+ *   - Glassmorphism cards and containers
+ *   - Custom typography (Inter via Google Fonts)
+ *   - ChatGPT-style message bubbles
+ *   - Custom scrollbar
+ *   - Responsive layout
+ */
+
+/* ── Google Font Import ──────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Root Variables ──────────────────────────────────────────────────────── */
+:root {
+    --bg-primary: #06060f;
+    --bg-secondary: #0c0c1d;
+    --bg-card: rgba(15, 15, 35, 0.65);
+    --bg-card-hover: rgba(25, 25, 55, 0.75);
+    --border-glass: rgba(255, 255, 255, 0.06);
+    --border-accent: rgba(99, 102, 241, 0.3);
+    --text-primary: #e8e8f0;
+    --text-secondary: #9597b0;
+    --text-muted: #5e607a;
+    --accent-blue: #6366f1;
+    --accent-purple: #8b5cf6;
+    --accent-cyan: #22d3ee;
+    --accent-emerald: #10b981;
+    --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+    --accent-gradient-hover: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
+    --glass-blur: 16px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.08);
+    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-medium: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Global Reset ────────────────────────────────────────────────────────── */
+.stApp {
+    background: var(--bg-primary) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    color: var(--text-primary) !important;
+}
+
+/* Animated gradient background */
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(ellipse 80% 60% at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 85% 75%, rgba(139, 92, 246, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 50% 50%, rgba(34, 211, 238, 0.03) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+    animation: bgShift 20s ease-in-out infinite alternate;
+}
+
+@keyframes bgShift {
+    0% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 0.8; transform: scale(1); }
+}
+
+/* ── Animated Floating Orbs ──────────────────────────────────────────────── */
+.stApp::after {
+    content: '';
+    position: fixed;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+    top: -100px;
+    right: -100px;
+    animation: floatOrb1 15s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes floatOrb1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-60px, 80px) scale(1.1); }
+    66% { transform: translate(40px, -40px) scale(0.95); }
+}
+
+/* ── Sidebar Styling ─────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0a0a1e 0%, #0d0d24 100%) !important;
+    border-right: 1px solid var(--border-glass) !important;
+}
+
+[data-testid="stSidebar"] .stMarkdown h1,
+[data-testid="stSidebar"] .stMarkdown h2,
+[data-testid="stSidebar"] .stMarkdown h3 {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}
+
+[data-testid="stSidebar"] .stMarkdown p,
+[data-testid="stSidebar"] .stMarkdown li {
+    color: var(--text-secondary) !important;
+    font-size: 0.9rem !important;
+}
+
+/* ── Header Styling ──────────────────────────────────────────────────────── */
+.main-header {
+    text-align: center;
+    padding: 2rem 1rem 1.5rem 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.main-header h1 {
+    font-size: 2.4rem !important;
+    font-weight: 800 !important;
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.4rem !important;
+    letter-spacing: -0.02em;
+}
+
+.main-header .subtitle {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    font-weight: 400;
+    margin-bottom: 0.8rem;
+}
+
+.main-header .disclaimer {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-style: italic;
+    padding: 0.5rem 1.2rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    display: inline-block;
+}
+
+/* ── Glassmorphism Card ──────────────────────────────────────────────────── */
+.glass-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-card);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.glass-card:hover {
+    border-color: var(--border-accent);
+    box-shadow: var(--shadow-card), var(--shadow-glow);
+}
+
+/* ── Chat Messages ───────────────────────────────────────────────────────── */
+[data-testid="stChatMessage"] {
+    background: var(--bg-card) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 1rem 1.2rem !important;
+    margin-bottom: 0.8rem !important;
+    box-shadow: var(--shadow-card) !important;
+    animation: messageSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* User messages - subtle accent border */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    border-left: 3px solid var(--accent-blue) !important;
+}
+
+/* Assistant messages - subtle purple border */
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    border-left: 3px solid var(--accent-purple) !important;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Chat Input ──────────────────────────────────────────────────────────── */
+[data-testid="stChatInput"] {
+    border-color: var(--border-glass) !important;
+}
+
+[data-testid="stChatInput"] textarea {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: var(--radius-md) !important;
+    font-family: 'Inter', sans-serif !important;
+}
+
+[data-testid="stChatInput"] textarea:focus {
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* ── Bottom Container (chat input footer bar) ────────────────────────────── */
+[data-testid="stBottom"],
+[data-testid="stBottom"] > div,
+.stChatInput,
+[data-testid="stChatInputContainer"],
+.stBottom {
+    background: var(--bg-primary) !important;
+    background-color: var(--bg-primary) !important;
+    border-top: 1px solid var(--border-glass) !important;
+}
+
+/* Target the sticky bottom bar wrapper */
+.stApp > div > div > div > div:last-child {
+    background: var(--bg-primary) !important;
+}
+
+/* Ensure all bottom-area containers are dark */
+section[data-testid="stBottom"] {
+    background: var(--bg-primary) !important;
+}
+
+/* Chat input send button */
+[data-testid="stChatInput"] button {
+    background: var(--accent-gradient) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+[data-testid="stChatInput"] button:hover {
+    background: var(--accent-gradient-hover) !important;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.stButton > button {
+    background: var(--accent-gradient) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: var(--radius-md) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    padding: 0.5rem 1.2rem !important;
+    transition: all var(--transition-fast) !important;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.25) !important;
+}
+
+.stButton > button:hover {
+    background: var(--accent-gradient-hover) !important;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0) !important;
+}
+
+/* Secondary / sidebar buttons */
+[data-testid="stSidebar"] .stButton > button {
+    width: 100% !important;
+    font-size: 0.82rem !important;
+    padding: 0.55rem 1rem !important;
+}
+
+/* Sample prompt buttons - different style */
+.sample-prompt-btn .stButton > button {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-glass) !important;
+    color: var(--text-secondary) !important;
+    box-shadow: none !important;
+    text-align: left !important;
+    font-weight: 400 !important;
+    font-size: 0.8rem !important;
+    padding: 0.45rem 0.8rem !important;
+}
+
+.sample-prompt-btn .stButton > button:hover {
+    background: var(--bg-card-hover) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-accent) !important;
+    box-shadow: var(--shadow-glow) !important;
+    transform: none !important;
+}
+
+/* ── Sliders ─────────────────────────────────────────────────────────────── */
+.stSlider [data-testid="stThumbValue"] {
+    color: var(--accent-blue) !important;
+    font-weight: 600 !important;
+}
+
+.stSlider [data-baseweb="slider"] [role="slider"] {
+    background: var(--accent-gradient) !important;
+}
+
+/* ── Selectbox ───────────────────────────────────────────────────────────── */
+.stSelectbox [data-baseweb="select"] {
+    background: var(--bg-card) !important;
+    border-color: var(--border-glass) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* ── Expander (Sources) ──────────────────────────────────────────────────── */
+.streamlit-expanderHeader {
+    background: rgba(99, 102, 241, 0.06) !important;
+    border: 1px solid rgba(99, 102, 241, 0.12) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--text-secondary) !important;
+    font-size: 0.88rem !important;
+    font-weight: 500 !important;
+}
+
+.streamlit-expanderHeader:hover {
+    background: rgba(99, 102, 241, 0.1) !important;
+    color: var(--text-primary) !important;
+}
+
+.streamlit-expanderContent {
+    background: rgba(10, 10, 30, 0.5) !important;
+    border: 1px solid var(--border-glass) !important;
+    border-top: none !important;
+    border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
+}
+
+/* ── File Uploader ───────────────────────────────────────────────────────── */
+[data-testid="stFileUploader"] {
+    background: var(--bg-card) !important;
+    border: 1px dashed var(--border-accent) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.8rem !important;
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+.stSpinner > div {
+    border-top-color: var(--accent-blue) !important;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.5);
+}
+
+/* ── Status / Success / Error badges ─────────────────────────────────────── */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.status-badge.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-emerald);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-badge.info {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--accent-blue);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* ── Source Citation Cards ───────────────────────────────────────────────── */
+.source-card {
+    background: rgba(15, 15, 35, 0.5);
+    border: 1px solid var(--border-glass);
+    border-left: 3px solid var(--accent-cyan);
+    border-radius: var(--radius-sm);
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.source-card .source-header {
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.3rem;
+}
+
+.source-card .source-text {
+    color: var(--text-secondary);
+}
+
+/* ── Dividers ────────────────────────────────────────────────────────────── */
+hr {
+    border: none;
+    border-top: 1px solid var(--border-glass);
+    margin: 1.5rem 0;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .main-header h1 {
+        font-size: 1.6rem !important;
+    }
+    .main-header .subtitle {
+        font-size: 0.9rem;
+    }
+    [data-testid="stChatMessage"] {
+        padding: 0.8rem !important;
+    }
+}
+
+/* ── Hide Streamlit Default Branding ─────────────────────────────────────── */
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+header[data-testid="stHeader"] {
+    background: transparent !important;
+}
+
+/* ── Toast / Alert Styling ───────────────────────────────────────────────── */
+.stAlert {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-glass) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* ── Metric Styling ──────────────────────────────────────────────────────── */
+[data-testid="stMetric"] {
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 0.8rem 1rem;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--text-secondary) !important;
+    font-size: 0.8rem !important;
+}
+
+[data-testid="stMetricValue"] {
+    color: var(--accent-blue) !important;
+    font-weight: 700 !important;
+}
+
+/* ── Animated Accent Line under Header ───────────────────────────────────── */
+.accent-line {
+    width: 80px;
+    height: 3px;
+    background: var(--accent-gradient);
+    border-radius: 2px;
+    margin: 0.8rem auto 1.5rem auto;
+    animation: accentPulse 3s ease-in-out infinite;
+}
+
+@keyframes accentPulse {
+    0%, 100% { width: 80px; opacity: 0.8; }
+    50% { width: 120px; opacity: 1; }
+}
+
+/* ── Second Floating Orb (injected via Streamlit HTML) ───────────────────── */
+.floating-orb {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.floating-orb.orb-1 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+    bottom: -80px;
+    left: -60px;
+    animation: floatOrb2 18s ease-in-out infinite;
+}
+
+.floating-orb.orb-2 {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.07) 0%, transparent 70%);
+    top: 40%;
+    right: 5%;
+    animation: floatOrb3 22s ease-in-out infinite;
+}
+
+@keyframes floatOrb2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(50px, -60px) scale(1.15); }
+    66% { transform: translate(-30px, 30px) scale(0.9); }
+}
+
+@keyframes floatOrb3 {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(-40px, 50px) rotate(180deg); }
+}
