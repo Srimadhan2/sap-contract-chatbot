@@ -21,11 +21,11 @@ DEFAULT_CHUNK_OVERLAP = 200     # overlap between consecutive chunks
 DEFAULT_TOP_K = 5               # number of chunks to retrieve
 
 # ── Google Gemini model identifiers ───────────────────────────────────────
-EMBEDDING_MODEL = "text-embedding-004"      # 768-dim embeddings
-GENERATION_MODEL = "gemini-1.5-pro"             # highly capable generation
+EMBEDDING_MODEL = "gemini-embedding-2"      # 3072-dim embeddings
+GENERATION_MODEL = "gemini-2.5-flash-lite"             # highly capable generation
 
 # ── Embedding dimensions (must match the model above) ────────────────────────
-EMBEDDING_DIM = 768
+EMBEDDING_DIM = 3072
 
 # ── Answer style options ─────────────────────────────────────────────────────
 ANSWER_STYLES = {
