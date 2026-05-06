@@ -20,12 +20,12 @@ DEFAULT_CHUNK_OVERLAP = 200     # overlap between consecutive chunks
 # ── Retrieval defaults ───────────────────────────────────────────────────────
 DEFAULT_TOP_K = 5               # number of chunks to retrieve
 
-# ── OpenAI model identifiers ──────────────────────────────────────────
-EMBEDDING_MODEL = "text-embedding-3-small"      # 1536-dim embeddings
-GENERATION_MODEL = "gpt-4o-mini"                # fast + capable generation
+# ── Google Gemini model identifiers ───────────────────────────────────────
+EMBEDDING_MODEL = "gemini-embedding-001"      # 3072-dim embeddings
+GENERATION_MODEL = "gemini-2.5-flash"             # highly capable generation
 
 # ── Embedding dimensions (must match the model above) ────────────────────────
-EMBEDDING_DIM = 1536
+EMBEDDING_DIM = 3072
 
 # ── Answer style options ─────────────────────────────────────────────────────
 ANSWER_STYLES = {
