@@ -7,7 +7,6 @@ import numpy as np
 import faiss
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
-from google.genai import types
 
 from config import (
     FAISS_INDEX_DIR,
@@ -87,16 +86,16 @@ def generate_answer(
     )
 
     client = get_client()
-    response = client.models.generate_content(
+    response = client.chat.completions.create(
         model=GENERATION_MODEL,
-        contents=query,
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=0.2,
-            max_output_tokens=2048,
-        )
+        messages=[
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": query}
+        ],
+        temperature=0.2,
+        max_tokens=2048,
     )
-    return response.text
+    return response.choices[0].message.content
 
 
 # ── Full RAG Pipeline ────────────────────────────────────────────────────────
