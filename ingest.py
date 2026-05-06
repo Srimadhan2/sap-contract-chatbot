@@ -22,7 +22,7 @@ load_dotenv()
 
 import numpy as np
 import faiss
-import openai
+from google import genai
 
 from PyPDF2 import PdfReader
 
@@ -35,15 +35,15 @@ from config import (
 )
 
 
-_client: Optional[openai.OpenAI] = None
+_client: Optional[genai.Client] = None
 
 
-def get_client() -> openai.OpenAI:
-    """Return a cached OpenAI client, creating one if needed."""
+def get_client() -> genai.Client:
+    """Return a cached Gemini client, creating one if needed."""
     global _client
     if _client is None:
-        api_key = os.environ.get("OPENAI_API_KEY", "")
-        _client = openai.OpenAI(api_key=api_key)
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        _client = genai.Client(api_key=api_key)
     return _client
 
 
@@ -179,11 +179,11 @@ def _find_sentence_boundary(text: str, start: int, end: int) -> int:
     return start
 
 
-# ── Embedding Generation (openai SDK) ──────────────────────────────────
+# ── Embedding Generation (Google Gemini) ───────────────────────────────
 
 def embed_texts(texts: List[str], batch_size: int = 20) -> np.ndarray:
     """
-    Generate embeddings for a list of texts using the OpenAI embedding API.
+    Generate embeddings for a list of texts using the Gemini embedding API.
     Processes in batches to respect API rate limits.
     Returns a numpy array of shape (len(texts), EMBEDDING_DIM).
     """
@@ -192,12 +192,12 @@ def embed_texts(texts: List[str], batch_size: int = 20) -> np.ndarray:
 
     for i in range(0, len(texts), batch_size):
         batch = texts[i : i + batch_size]
-        result = client.embeddings.create(
+        result = client.models.embed_content(
             model=EMBEDDING_MODEL,
-            input=batch,
+            contents=batch,
         )
-        for data in result.data:
-            all_embeddings.append(data.embedding)
+        for embedding in result.embeddings:
+            all_embeddings.append(embedding.values)
 
         # Small delay to avoid rate-limiting on free tier
         if i + batch_size < len(texts):
@@ -211,11 +211,11 @@ def embed_query(text: str) -> np.ndarray:
     Generate an embedding for a single query string.
     """
     client = get_client()
-    result = client.embeddings.create(
+    result = client.models.embed_content(
         model=EMBEDDING_MODEL,
-        input=[text],
+        contents=text,
     )
-    return np.array(result.data[0].embedding, dtype=np.float32).reshape(1, -1)
+    return np.array(result.embeddings[0].values, dtype=np.float32).reshape(1, -1)
 
 
 # ── FAISS Index Management ───────────────────────────────────────────────────

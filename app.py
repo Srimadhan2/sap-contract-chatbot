@@ -27,12 +27,12 @@ load_dotenv()
 
 
 def _get_api_key() -> str:
-    """Resolve the OpenAI API key from Streamlit secrets or environment."""
+    """Resolve the Gemini API key from Streamlit secrets or environment."""
     try:
-        return st.secrets["OPENAI_API_KEY"]
+        return st.secrets["GEMINI_API_KEY"]
     except Exception:
         pass
-    return os.environ.get("OPENAI_API_KEY", "")
+    return os.environ.get("GEMINI_API_KEY", "")
 
 
 # ── Page Configuration ───────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ for key, default in [
 # ── Configure API Key ────────────────────────────────────────────────────────
 api_key = _get_api_key()
 if api_key:
-    os.environ["OPENAI_API_KEY"] = api_key
+    os.environ["GEMINI_API_KEY"] = api_key
     reset_client()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -100,20 +100,22 @@ with st.sidebar:
     )
     st.divider()
 
-    # ── API Key Input (if not set) ───────────────────────────────────────
-    if not api_key:
-        st.markdown("### 🔑 API Key Required")
-        api_key_input = st.text_input(
-            "OpenAI API Key",
-            type="password",
-            placeholder="Enter your API key...",
-            help="Get your key at https://platform.openai.com/api-keys",
-        )
-        if api_key_input:
-            api_key = api_key_input
-            os.environ["OPENAI_API_KEY"] = api_key
-            reset_client()
-        st.divider()
+    # ── API Key Configuration ────────────────────────────────────────────
+    st.markdown("### 🔑 API Key")
+    api_key_input = st.text_input(
+        "Google Gemini API Key",
+        value=api_key if api_key else "",
+        type="password",
+        placeholder="Enter your API key...",
+        help="Get your key at https://aistudio.google.com/app/apikey",
+    )
+    if api_key_input:
+        api_key = api_key_input
+        os.environ["GEMINI_API_KEY"] = api_key
+        reset_client()
+    elif not api_key:
+        st.warning("⚠️ Please enter your API key to proceed.")
+    st.divider()
 
     # ── Document Management ──────────────────────────────────────────────
     st.markdown("### 📄 Document")
@@ -137,7 +139,7 @@ with st.sidebar:
         current_name = uploaded_file.name
         if current_name != st.session_state.doc_name:
             if not api_key:
-                st.error("⚠️ Please enter your OpenAI API key first.")
+                st.error("⚠️ Please enter your Gemini API key first.")
             else:
                 with st.spinner("📊 Ingesting document..."):
                     try:
@@ -221,7 +223,7 @@ with st.sidebar:
 
     st.markdown(
         '<div style="text-align:center;padding-top:1rem;color:#5e607a;font-size:0.7rem;">'
-        "Powered by OpenAI & FAISS<br/>Built with Streamlit</div>",
+        "Powered by Google Gemini & FAISS<br/>Built with Streamlit</div>",
         unsafe_allow_html=True,
     )
 
@@ -284,7 +286,7 @@ def _process_query(query: str):
         st.markdown(query)
 
     if not api_key:
-        err = "⚠️ Please enter your OpenAI API key in the sidebar."
+        err = "⚠️ Please enter your Gemini API key in the sidebar."
         st.session_state.messages.append(
             {"role": "assistant", "content": err, "sources": []}
         )
