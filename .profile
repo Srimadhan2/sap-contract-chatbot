@@ -1,0 +1,2 @@
+export PIP_NO_INDEX=1
+export PIP_FIND_LINKS=vendor

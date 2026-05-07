@@ -1,0 +1,8 @@
+applications:
+  - name: sap-contract-chatbot
+    memory: 1G
+    disk_quota: 2G
+    random-route: true
+    buildpacks:
+      - python_buildpack
+    command: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.enableCORS false --server.enableXsrfProtection false

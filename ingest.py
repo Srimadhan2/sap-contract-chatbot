@@ -1,308 +1,456 @@
-"""
-ingest.py — PDF ingestion pipeline for SAP Contract Intelligence Assistant.
-
-Responsibilities:
-  1. Extract text from PDF page-by-page (preserving page numbers).
-  2. Clean and normalize the extracted text.
-  3. Detect section headings and attach metadata.
-  4. Chunk text intelligently with configurable size and overlap.
-  5. Generate embeddings via Google Gemini embedding API (google.genai SDK).
-  6. Build and persist a FAISS vector index alongside chunk metadata.
-"""
+# =========================================================
+# ingest.py — FINAL SAP BTP SAFE VERSION
+# =========================================================
 
 import os
 import re
-import pickle
 import time
+import pickle
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Optional
+
+# =========================================================
+# SAP BTP NETWORK FIX
+# =========================================================
+
+os.environ["GRPC_DNS_RESOLVER"] = "native"
+os.environ["GLOG_minloglevel"] = "2"
+
+# =========================================================
+# LOAD ENV
+# =========================================================
+
 from dotenv import load_dotenv
 load_dotenv()
 
+# =========================================================
+# IMPORTS
+# =========================================================
 
 import numpy as np
 import faiss
-from google import genai
 
+from google import genai
 from PyPDF2 import PdfReader
 
-from config import (
-    FAISS_INDEX_DIR,
-    DEFAULT_CHUNK_SIZE,
-    DEFAULT_CHUNK_OVERLAP,
-    EMBEDDING_MODEL,
-    EMBEDDING_DIM,
+# =========================================================
+# CONFIG
+# =========================================================
+
+FAISS_INDEX_DIR = Path(
+    "faiss_index"
 )
 
+DEFAULT_CHUNK_SIZE = 1000
+DEFAULT_CHUNK_OVERLAP = 200
 
-_client: Optional[genai.Client] = None
+EMBEDDING_MODEL = (
+    "gemini-embedding-001"
+)
 
+# =========================================================
+# GEMINI CLIENT
+# =========================================================
 
-def get_client() -> genai.Client:
-    """Return a cached Gemini client, creating one if needed."""
-    global _client
-    if _client is None:
-        api_key = os.environ.get("GEMINI_API_KEY", "")
-        _client = genai.Client(api_key=api_key)
-    return _client
+_client: Optional[
+    genai.Client
+] = None
 
 
 def reset_client():
-    """Force re-creation of the OpenAI client (e.g. after key change)."""
+
     global _client
+
     _client = None
 
 
-# ── PDF Text Extraction ─────────────────────────────────────────────────────
+def get_client():
 
-def extract_text_from_pdf(pdf_path_or_file) -> List[Dict[str, Any]]:
-    """
-    Extract text from a PDF file, returning a list of dicts:
-        [{ "page": 1, "text": "..." }, ...]
+    global _client
 
-    Accepts either a file path (str/Path) or a file-like object (from st.file_uploader).
-    """
-    reader = PdfReader(pdf_path_or_file)
+    if _client is None:
+
+        api_key = os.environ.get(
+            "GEMINI_API_KEY",
+            ""
+        )
+
+        if not api_key:
+
+            raise ValueError(
+                "❌ GEMINI_API_KEY not found"
+            )
+
+        _client = genai.Client(
+            api_key=api_key,
+            http_options={
+                "api_version": "v1beta"
+            }
+        )
+
+    return _client
+
+
+# =========================================================
+# PDF EXTRACTION
+# =========================================================
+
+def extract_text_from_pdf(
+    pdf_path_or_file
+):
+
+    reader = PdfReader(
+        pdf_path_or_file
+    )
+
     pages = []
-    for i, page in enumerate(reader.pages):
-        text = page.extract_text() or ""
+
+    for i, page in enumerate(
+        reader.pages
+    ):
+
+        text = (
+            page.extract_text() or ""
+        )
+
         if text.strip():
-            pages.append({"page": i + 1, "text": text})
+
+            pages.append({
+                "page": i + 1,
+                "text": text
+            })
+
     return pages
 
 
-# ── Text Cleaning ────────────────────────────────────────────────────────────
+# =========================================================
+# CLEAN TEXT
+# =========================================================
 
-def clean_text(text: str) -> str:
-    """
-    Normalize whitespace, fix hyphenation at line breaks, and remove
-    common header/footer artifacts.
-    """
-    # Fix hyphenated words split across lines
-    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
-    # Replace multiple newlines with a single newline
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    # Collapse multiple spaces
-    text = re.sub(r"[ \t]{2,}", " ", text)
-    # Remove common page-number patterns like "Page 1 of 20"
-    text = re.sub(r"Page\s+\d+\s+of\s+\d+", "", text, flags=re.IGNORECASE)
+def clean_text(text):
+
+    text = re.sub(
+        r"\s+",
+        " ",
+        text
+    )
+
     return text.strip()
 
 
-# ── Section Detection ────────────────────────────────────────────────────────
-
-SECTION_PATTERN = re.compile(
-    r"^"
-    r"(?:"
-    r"(?:SECTION|ARTICLE|CLAUSE)\s+\d+[\.\:]?\s*"
-    r"|"
-    r"\d{1,2}\.\d{0,2}\.?\s+"
-    r")"
-    r"[A-Z]",
-    re.MULTILINE,
-)
-
-
-def detect_section_title(text: str) -> str:
-    """
-    Attempt to extract the first section heading from a chunk of text.
-    Returns the heading string or 'General' if none found.
-    """
-    match = SECTION_PATTERN.search(text)
-    if match:
-        line_start = match.start()
-        line_end = text.find("\n", line_start)
-        if line_end == -1:
-            line_end = min(line_start + 120, len(text))
-        heading = text[line_start:line_end].strip()
-        return heading[:120] if len(heading) > 120 else heading
-    return "General"
-
-
-# ── Intelligent Chunking ─────────────────────────────────────────────────────
+# =========================================================
+# CHUNKING
+# =========================================================
 
 def chunk_pages(
-    pages: List[Dict[str, Any]],
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
-    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
-) -> List[Dict[str, Any]]:
-    """
-    Split page texts into overlapping chunks, each carrying metadata:
-        { "chunk_id": int, "text": str, "page": int, "section": str }
-    """
-    chunks: List[Dict[str, Any]] = []
+    pages,
+    chunk_size=1000,
+    chunk_overlap=200
+):
+
+    chunks = []
+
     chunk_id = 0
 
     for page_info in pages:
-        page_num = page_info["page"]
-        text = clean_text(page_info["text"])
-        if not text:
-            continue
+
+        text = clean_text(
+            page_info["text"]
+        )
 
         start = 0
+
         while start < len(text):
+
             end = start + chunk_size
 
-            if end < len(text):
-                boundary = _find_sentence_boundary(text, start, end)
-                if boundary > start:
-                    end = boundary
+            chunk_text = text[
+                start:end
+            ]
 
-            chunk_text = text[start:end].strip()
-            if chunk_text:
-                section = detect_section_title(chunk_text)
-                chunks.append({
-                    "chunk_id": chunk_id,
-                    "text": chunk_text,
-                    "page": page_num,
-                    "section": section,
-                })
-                chunk_id += 1
+            chunks.append({
+                "chunk_id": chunk_id,
+                "text": chunk_text,
+                "page": page_info["page"],
+                "section": "General",
+            })
 
-            start = max(start + 1, end - chunk_overlap)
+            chunk_id += 1
+
+            start += (
+                chunk_size
+                - chunk_overlap
+            )
 
     return chunks
 
 
-def _find_sentence_boundary(text: str, start: int, end: int) -> int:
-    """
-    Look backward from `end` for the last sentence-ending punctuation
-    followed by whitespace. Returns the position just after the punctuation,
-    or `start` if no boundary found.
-    """
-    search_region = text[start:end]
-    for i in range(len(search_region) - 1, max(len(search_region) // 2, 0), -1):
-        if search_region[i] in ".?!" and (
-            i + 1 < len(search_region) and search_region[i + 1] in " \n\t"
-        ):
-            return start + i + 1
-    return start
+# =========================================================
+# EMBEDDINGS
+# =========================================================
 
+def embed_texts(
+    texts,
+    batch_size=10
+):
 
-# ── Embedding Generation (Google Gemini) ───────────────────────────────
-
-def embed_texts(texts: List[str], batch_size: int = 20) -> np.ndarray:
-    """
-    Generate embeddings for a list of texts using the Gemini embedding API.
-    Processes in batches to respect API rate limits.
-    Returns a numpy array of shape (len(texts), EMBEDDING_DIM).
-    """
     client = get_client()
+
     all_embeddings = []
 
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
-        result = client.models.embed_content(
-            model=EMBEDDING_MODEL,
-            contents=batch,
+    for i in range(
+        0,
+        len(texts),
+        batch_size
+    ):
+
+        batch = texts[
+            i:i + batch_size
+        ]
+
+        print(
+            f"🧠 Embedding batch "
+            f"{i // batch_size + 1}"
         )
-        for embedding in result.embeddings:
-            all_embeddings.append(embedding.values)
 
-        # Small delay to avoid rate-limiting on free tier
-        if i + batch_size < len(texts):
-            time.sleep(0.5)
+        result = (
+            client.models.embed_content(
+                model=EMBEDDING_MODEL,
+                contents=batch,
+            )
+        )
 
-    return np.array(all_embeddings, dtype=np.float32)
+        for embedding in (
+            result.embeddings
+        ):
 
+            all_embeddings.append(
+                embedding.values
+            )
 
-def embed_query(text: str) -> np.ndarray:
-    """
-    Generate an embedding for a single query string.
-    """
-    client = get_client()
-    result = client.models.embed_content(
-        model=EMBEDDING_MODEL,
-        contents=text,
+        time.sleep(0.5)
+
+    return np.array(
+        all_embeddings,
+        dtype=np.float32
     )
-    return np.array(result.embeddings[0].values, dtype=np.float32).reshape(1, -1)
 
 
-# ── FAISS Index Management ───────────────────────────────────────────────────
+def embed_query(text):
 
-def build_faiss_index(embeddings: np.ndarray) -> faiss.IndexFlatIP:
-    """
-    Build a FAISS inner-product index from normalized embeddings.
-    Inner product on L2-normalized vectors == cosine similarity.
-    """
-    faiss.normalize_L2(embeddings)
-    index = faiss.IndexFlatIP(EMBEDDING_DIM)
+    client = get_client()
+
+    result = (
+        client.models.embed_content(
+            model=EMBEDDING_MODEL,
+            contents=text,
+        )
+    )
+
+    vector = np.array(
+        result.embeddings[0].values,
+        dtype=np.float32,
+    ).reshape(1, -1)
+
+    return vector
+
+
+# =========================================================
+# FAISS
+# =========================================================
+
+def build_faiss_index(
+    embeddings
+):
+
+    faiss.normalize_L2(
+        embeddings
+    )
+
+    dimension = embeddings.shape[1]
+
+    index = faiss.IndexFlatIP(
+        dimension
+    )
+
     index.add(embeddings)
+
     return index
 
 
+# =========================================================
+# SAVE INDEX
+# =========================================================
+
 def save_index(
-    index: faiss.IndexFlatIP,
-    chunks: List[Dict[str, Any]],
-    index_dir: Optional[Path] = None,
+    index,
+    chunks
 ):
-    """Persist the FAISS index and chunk metadata to disk."""
-    index_dir = index_dir or FAISS_INDEX_DIR
-    index_dir.mkdir(parents=True, exist_ok=True)
 
-    faiss.write_index(index, str(index_dir / "index.faiss"))
-    with open(index_dir / "chunks.pkl", "wb") as f:
-        pickle.dump(chunks, f)
+    FAISS_INDEX_DIR.mkdir(
+        exist_ok=True
+    )
+
+    faiss.write_index(
+        index,
+        str(
+            FAISS_INDEX_DIR
+            / "index.faiss"
+        )
+    )
+
+    with open(
+        FAISS_INDEX_DIR
+        / "chunks.pkl",
+        "wb"
+    ) as f:
+
+        pickle.dump(
+            chunks,
+            f
+        )
 
 
-def load_index(index_dir: Optional[Path] = None):
-    """
-    Load a previously saved FAISS index and chunk metadata.
-    Returns (index, chunks) or (None, None) if files don't exist.
-    """
-    index_dir = index_dir or FAISS_INDEX_DIR
-    index_path = index_dir / "index.faiss"
-    chunks_path = index_dir / "chunks.pkl"
+# =========================================================
+# LOAD INDEX
+# =========================================================
 
-    if not index_path.exists() or not chunks_path.exists():
+def load_index(force_reload=False):
+
+    index_path = (
+        FAISS_INDEX_DIR
+        / "index.faiss"
+    )
+
+    chunks_path = (
+        FAISS_INDEX_DIR
+        / "chunks.pkl"
+    )
+
+    if (
+        not index_path.exists()
+        or not chunks_path.exists()
+    ):
+
         return None, None
 
-    index = faiss.read_index(str(index_path))
-    with open(chunks_path, "rb") as f:
+    index = faiss.read_index(
+        str(index_path)
+    )
+
+    with open(
+        chunks_path,
+        "rb"
+    ) as f:
+
         chunks = pickle.load(f)
+
     return index, chunks
 
 
-# ── Main Ingestion Pipeline ──────────────────────────────────────────────────
+# =========================================================
+# MAIN INGESTION
+# =========================================================
 
 def ingest_pdf(
     pdf_path_or_file,
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
-    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
-    index_dir: Optional[Path] = None,
-) -> List[Dict[str, Any]]:
-    """
-    End-to-end ingestion: PDF → text → chunks → embeddings → FAISS index.
+    chunk_size=DEFAULT_CHUNK_SIZE,
+    chunk_overlap=DEFAULT_CHUNK_OVERLAP,
+):
 
-    Args:
-        pdf_path_or_file: Path to PDF or a file-like object.
-        chunk_size: Maximum characters per chunk.
-        chunk_overlap: Overlap between consecutive chunks.
-        index_dir: Directory to save the FAISS index (default: FAISS_INDEX_DIR).
+    print(
+        "\n🚀 STARTING PDF INGESTION"
+    )
 
-    Returns:
-        List of chunk metadata dicts.
-    """
-    # Step 1: Extract text
-    pages = extract_text_from_pdf(pdf_path_or_file)
-    if not pages:
-        raise ValueError(
-            "No text could be extracted from the PDF. It may be scanned/image-only."
-        )
+    # =====================================
+    # EXTRACT TEXT
+    # =====================================
 
-    # Step 2: Chunk with metadata
-    chunks = chunk_pages(pages, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    if not chunks:
-        raise ValueError(
-            "Chunking produced no results. The document may be empty after cleaning."
-        )
+    print(
+        "\n📄 Extracting PDF text..."
+    )
 
-    # Step 3: Generate embeddings
-    texts = [c["text"] for c in chunks]
-    embeddings = embed_texts(texts)
+    pages = extract_text_from_pdf(
+        pdf_path_or_file
+    )
 
-    # Step 4: Build and save FAISS index
-    index = build_faiss_index(embeddings)
-    save_index(index, chunks, index_dir=index_dir)
+    print(
+        f"✅ Pages extracted: "
+        f"{len(pages)}"
+    )
+
+    # =====================================
+    # CHUNKING
+    # =====================================
+
+    print(
+        "\n✂ Creating chunks..."
+    )
+
+    chunks = chunk_pages(
+    pages,
+    chunk_size=chunk_size,
+    chunk_overlap=chunk_overlap,
+)
+    print(
+        f"✅ Chunks created: "
+        f"{len(chunks)}"
+    )
+
+    # =====================================
+    # EMBEDDINGS
+    # =====================================
+
+    print(
+        "\n🧠 Generating embeddings..."
+    )
+
+    texts = [
+        chunk["text"]
+        for chunk in chunks
+    ]
+
+    embeddings = embed_texts(
+        texts
+    )
+
+    print(
+        f"✅ Embeddings shape: "
+        f"{embeddings.shape}"
+    )
+
+    # =====================================
+    # BUILD INDEX
+    # =====================================
+
+    print(
+        "\n📦 Building FAISS index..."
+    )
+
+    index = build_faiss_index(
+        embeddings
+    )
+
+    print(
+        f"✅ Total vectors stored: "
+        f"{index.ntotal}"
+    )
+
+    # =====================================
+    # SAVE
+    # =====================================
+
+    print(
+        "\n💾 Saving vector DB..."
+    )
+
+    save_index(
+        index,
+        chunks
+    )
+
+    print(
+        "\n🎉 INGESTION COMPLETED"
+    )
 
     return chunks

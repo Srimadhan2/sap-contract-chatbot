@@ -1,6 +1,9 @@
-streamlit>=1.35.0
-google-genai>=0.1.1
-faiss-cpu>=1.7.4
-PyPDF2>=3.0.0
-python-dotenv>=1.0.0
-numpy>=1.24.0
+streamlit==1.57.0
+google-genai==1.30.0
+faiss-cpu==1.9.0.post1
+numpy==2.2.6
+python-dotenv==1.0.1
+PyPDF2==3.0.1
+wheel==0.47.0
+setuptools==82.0.1
+flit_core==3.12.0
